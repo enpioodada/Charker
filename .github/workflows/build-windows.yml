@@ -1,0 +1,64 @@
+
+name: Build Charker Windows Dev
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "Matter/**"
+      - "charker-go/**"
+      - ".github/workflows/build-windows.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.27.3"
+          cache-dependency-path: charker-go/go.sum
+
+      - name: Install Rust toolchain
+        shell: pwsh
+        run: |
+          rustup toolchain install 1.97.1 --profile minimal
+          rustup target add x86_64-pc-windows-msvc --toolchain 1.97.1
+
+      - name: Show tool versions
+        run: |
+          go version
+          rustc +1.97.1 --version
+          cargo +1.97.1 --version
+
+      - name: Build Charker and Matter
+        shell: pwsh
+        working-directory: charker-go
+        run: |
+          .\build.ps1 -Mode dev -OutDir build-ci
+
+      - name: Package
+        shell: pwsh
+        working-directory: charker-go
+        run: |
+          Compress-Archive `
+            -Path build-ci\charker-dev.exe,build-ci\charker-matter.exe `
+            -DestinationPath build-ci\Charker-Windows-dev.zip `
+            -Force
+
+      - name: Upload Windows binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: Charker-Windows-dev
+          path: charker-go/build-ci/Charker-Windows-dev.zip
+          if-no-files-found: error
+          retention-days: 14
