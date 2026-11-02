@@ -1,0 +1,51 @@
+
+name: Build Charker Windows Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows-release:
+    name: Build Windows Release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: charker-go/go.mod
+          cache: true
+          cache-dependency-path: charker-go/go.sum
+
+      - name: Install Rust toolchain
+        shell: pwsh
+        run: |
+          rustup toolchain install 1.97.1 --profile minimal
+          rustup target add x86_64-pc-windows-msvc --toolchain 1.97.1
+
+      - name: Show tool versions
+        shell: pwsh
+        run: |
+          go version
+          rustc +1.97.1 --version
+          cargo +1.97.1 --version
+
+      - name: Build Charker Windows Release
+        shell: pwsh
+        working-directory: charker-go
+        run: |
+          .\build.ps1 -Mode release -OutDir build-release
+
+      - name: Upload Release files
+        uses: actions/upload-artifact@v4
+        with:
+          name: Charker-Windows-Release
+          path: charker-go/build-release/**
+          if-no-files-found: error
+          retention-days: 30
